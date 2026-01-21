@@ -1,0 +1,67 @@
+main.py
+
+from fastapi import FastAPI, UploadFile, File
+from skimage.metrics import structural_similarity as ssim
+from PIL import Image
+import numpy as np
+import io
+
+app = FastAPI()
+
+@app.post("/ssim")
+async def image_ssim(
+    img1: UploadFile = File(...),
+    img2: UploadFile = File(...)
+):
+    # read bytes
+    b1 = await img1.read()
+    b2 = await img2.read()
+
+    # bytes → grayscale images
+    i1 = Image.open(io.BytesIO(b1)).convert("L")
+    i2 = Image.open(io.BytesIO(b2)).convert("L")
+
+    # resize if needed
+    if i1.size != i2.size:
+        i2 = i2.resize(i1.size)
+
+    # to numpy
+    a1 = np.array(i1)
+    a2 = np.array(i2)
+
+    # SSIM
+    score = ssim(a1, a2, data_range=255)
+
+    return {"ssim_score": float(score)}
+
+
+pip install fastapi uvicorn pillow scikit-image numpy
+uvicorn main:app --reload
+http://127.0.0.1:8000
+http://127.0.0.1:8000/docs
+
+
+client.ipynb
+
+import requests
+
+url = "http://127.0.0.1:8000/ssim"
+
+files = {
+    "img1": open("image1.jpg", "rb"),
+    "img2": open("image2.jpg", "rb")
+}
+
+response = requests.post(url, files=files)
+response.json()
+
+
+Terminal → uvicorn main:app
+                ↓
+FastAPI server listening
+                ↓
+Jupyter notebook sends images
+                ↓
+SSIM computed
+                ↓
+JSON response
